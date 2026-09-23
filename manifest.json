@@ -1,0 +1,29 @@
+{
+  "id": "g9-evolutions",
+  "name": "g9-evolutions",
+  "version": "0.8.0",
+  "api": 2,
+  "entry": "main.lua",
+  "profile": "content",
+  "game_version": ">=0.1.45",
+  "games": [
+    "gen1",
+    "gen2"
+  ],
+  "category": "GAMEPLAY",
+  "priority": 100,
+  "permissions": [
+    "engine_internals"
+  ],
+  "dependencies": [
+    "national_dex"
+  ],
+  "optional_dependencies": [
+    "g9-battle-engine"
+  ],
+  "description": "Evolution on both generations, plus happiness and Gimmighoul inspectors.",
+  "options_schema": "options.lua",
+  "experimental": false,
+  "conflicts": [],
+  "incompatible": []
+}
