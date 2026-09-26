@@ -135,6 +135,15 @@ return function(mod)
     warn("g9-evolutions: data/alt_evolutions.lua did not load -- day/night "
       .. "stones, the Gen 1 Rockruff line and the Gimmighoul charge are off")
   end
+  -- The species blacklist the wonder trade filters by, and (when g9-battle-
+  -- sample is not installed) the list the OPTIONS-menu BLACKLIST window edits.
+  -- See data/blacklist.lua for the one-array-of-ids convention that lets the
+  -- sample's list, this module and g9-gui's skin share one store.
+  local Blacklist = loadSibling("data/blacklist.lua")
+  if type(Blacklist) ~= "table" then
+    warn("g9-evolutions: data/blacklist.lua did not load -- the wonder trade "
+      .. "will not filter delisted species and no BLACKLIST button is offered")
+  end
 
   -- ------------------------------------------------------------ generation
   local gen = 1
@@ -147,12 +156,21 @@ return function(mod)
   end
 
   -- ------------------------------------------------------- national_dex
+  -- national_dex is the SOURCE of the evolution data, but it is an OPTIONAL
+  -- dependency: with it absent (or too old to carry the evolutionsOf API) only
+  -- the data-modelled REBUILD below is skipped.  Every other wing -- the TRADE
+  -- screen (a real trade evolution and the wonder trade), the inspectors, the
+  -- G-FACTOR item and the whose-PC rows -- still installs and works, because
+  -- none of them reads the dex: the wonder trade's pool is the running
+  -- registry (game.data.pokemon) and the trade round trip uses the engine's
+  -- own evolution machinery.  Nothing here may `return` early.
   local dex = mod.find and mod.find("national_dex") or nil
-  local exports = dex and dex.exports or nil
-  if not Source.available(exports) then
+  local exports = type(dex) == "table" and dex.exports or nil
+  local dexAvailable = Source.available(exports)
+  if not dexAvailable then
     warn("g9-evolutions: national_dex is missing or too old (needs its "
-      .. "evolutionsOf API, apiVersion >= 3) -- no evolutions were rebuilt")
-    return
+      .. "evolutionsOf API, apiVersion >= 3) -- the evolution rebuild is off; "
+      .. "trade, inspectors and the PC rows still install")
   end
 
   -- ------------------------------------------------------------- item ids
@@ -201,7 +219,8 @@ return function(mod)
   -- id that never landed.  `patch` layers this mod's answer on top of whatever
   -- is already there and is idempotent: it can add or refine, never delete, and
   -- it cannot collide.
-  local dexPatch = type(exports.patch) == "function" and exports.patch or nil
+  local dexPatch = type(exports) == "table" and type(exports.patch) == "function"
+    and exports.patch or nil
 
   local function patchMethod(id, record)
     if dexPatch then
@@ -230,19 +249,22 @@ return function(mod)
   -- means and the line-shape fallback when the move is not in the learnset.
   local noMoveEvo = on("no_move_evo")
   local moveEvoLevel = nil
-  if noMoveEvo and type(MoveEvo) == "table"
+  if dexAvailable and noMoveEvo and type(MoveEvo) == "table"
       and type(MoveEvo.resolver) == "function" then
     local ok, resolver = pcall(MoveEvo.resolver, exports)
     if ok and type(resolver) == "function" then moveEvoLevel = resolver end
   end
 
-  local specs = Source.specs(exports, Source.ids(exports))
-  -- The synthetic targets the data does not hang on the species a player can
-  -- actually own (Lycanroc-Dusk's Dusk Stone route on Gen 1).  Added before the
-  -- needs pass so their items/methods are registered too.
-  if type(Alt) == "table" and type(Alt.extraSpecs) == "function" then
-    local extra = Alt.extraSpecs(gen, registered)
-    for _, spec in ipairs(extra or {}) do specs[#specs + 1] = spec end
+  local specs = {}
+  if dexAvailable then
+    specs = Source.specs(exports, Source.ids(exports))
+    -- The synthetic targets the data does not hang on the species a player can
+    -- actually own (Lycanroc-Dusk's Dusk Stone route on Gen 1).  Added before
+    -- the needs pass so their items/methods are registered too.
+    if type(Alt) == "table" and type(Alt.extraSpecs) == "function" then
+      local extra = Alt.extraSpecs(gen, registered)
+      for _, spec in ipairs(extra or {}) do specs[#specs + 1] = spec end
+    end
   end
   local need = RowBuilder.collectNeeds(specs, {
     gen = gen,
@@ -337,39 +359,47 @@ return function(mod)
     "evolutions/region.lua",
     "evolutions/item_level.lua",
   }
+  -- The method units exist to serve the rebuilt rows, so with no dex (and thus
+  -- no rows) there is nothing for them to operate and they are skipped whole.
   local methodsRegistered = 0
-  for _, path in ipairs(EVOLUTION_UNITS) do
-    local unit = loadSibling(path)
-    if type(unit) == "table" and type(unit.install) == "function" then
-      local ok = attempt(path, unit.install, mod, ctx, need)
-      if ok then methodsRegistered = methodsRegistered + 1 end
-    else
-      warn("g9-evolutions: " .. path .. " did not return an installer")
+  if dexAvailable then
+    for _, path in ipairs(EVOLUTION_UNITS) do
+      local unit = loadSibling(path)
+      if type(unit) == "table" and type(unit.install) == "function" then
+        local ok = attempt(path, unit.install, mod, ctx, need)
+        if ok then methodsRegistered = methodsRegistered + 1 end
+      else
+        warn("g9-evolutions: " .. path .. " did not return an installer")
+      end
     end
   end
 
   -- ------------------------------------------------------------------ items
+  -- The region items and the evolution items exist to satisfy the rebuilt rows,
+  -- so both installers are part of the rebuild wing (and skip with it).
   local itemsRegistered = 0
-  local regional = loadSibling("items/regional_items.lua")
-  if type(regional) == "table" and type(regional.install) == "function" then
-    attempt("items/regional_items.lua", regional.install, mod, ctx)
-    itemsRegistered = itemsRegistered + 1
-  end
-  local evolutionItems = loadSibling("items/evolution_items.lua")
-  if type(evolutionItems) == "table"
-      and type(evolutionItems.install) == "function" then
-    attempt("items/evolution_items.lua", evolutionItems.install, mod, ctx, need)
-    itemsRegistered = itemsRegistered + 1
+  if dexAvailable then
+    local regional = loadSibling("items/regional_items.lua")
+    if type(regional) == "table" and type(regional.install) == "function" then
+      attempt("items/regional_items.lua", regional.install, mod, ctx)
+      itemsRegistered = itemsRegistered + 1
+    end
+    local evolutionItems = loadSibling("items/evolution_items.lua")
+    if type(evolutionItems) == "table"
+        and type(evolutionItems.install) == "function" then
+      attempt("items/evolution_items.lua", evolutionItems.install, mod, ctx, need)
+      itemsRegistered = itemsRegistered + 1
+    end
   end
 
   -- ------------------------------------- Gigantamax Factor (+ the PC row)
-  -- The use-on-a-mon item that grants the Gigantamax Factor, and the PC row
-  -- that mints it from ten Dynamax Candies.  Both read the one vocabulary in
-  -- data/gigantamax_factor.lua (id, name, candy, rate, wording), loaded once
-  -- here and handed to each, so the item a player is handed is the item the
-  -- PC describes.  They fail independently: a missing lib costs both, a
-  -- broken item registrar costs only the item, and a missing widget facade
-  -- (mod.ui) costs only the row.
+  -- The use-on-a-mon item that grants the Gigantamax Factor.  It reads the one
+  -- vocabulary in data/gigantamax_factor.lua (id, name, candy, rate, wording),
+  -- loaded here and handed to the item registrar -- and, further down, to the
+  -- whose-PC row that mints it from ten Dynamax Candies.  The item and the row
+  -- fail independently: a missing lib costs the item, a broken item registrar
+  -- costs only the item, and a missing widget facade (mod.ui) costs only the
+  -- row.
   local GFactor = loadSibling("data/gigantamax_factor.lua")
   if type(GFactor) ~= "table" then
     warn("g9-evolutions: data/gigantamax_factor.lua did not load -- G-FACTOR "
@@ -385,17 +415,189 @@ return function(mod)
       warn("g9-evolutions: items/gigantamax_factor.lua did not return an "
         .. "installer")
     end
-    if on("max_pc") then
-      local pcRow = loadSibling("ui/pc_maxfactor.lua")
-      if type(pcRow) == "table" and type(pcRow.install) == "function" then
-        attempt("ui/pc_maxfactor.lua", pcRow.install, mod, ctx, GFactor)
-      else
-        warn("g9-evolutions: ui/pc_maxfactor.lua did not return an installer")
+  end
+
+  -- ---------------------------------------------------------- shared style
+  -- ui/style.lua is the suite's own drawing vocabulary -- the dark panels, the
+  -- Saira face, the accent bars -- and the trade screen, the trade animation
+  -- and the inspectors all draw with it.  Built ONCE here and shared, so a bad
+  -- build costs every modern surface at once instead of being retried three
+  -- different ways.
+  --
+  -- The modern-content LOCALIZER rides along: when g9-gui (with a translation
+  -- mod active) is installed, ui/style.lua translates every string it draws
+  -- through g9-gui's published `translation.line`, so the trade screen, its
+  -- animation and the inspectors read the same language as the rest of the
+  -- suite.  Resolved LAZILY -- g9-gui may finish initialising after this mod,
+  -- and a MODERN UI: OFF boot never has it -- and never cached when absent.
+  local translateLayer
+  local function g9Localize(text)
+    if type(text) ~= "string" or text == "" then return text end
+    if translateLayer == nil then
+      local ok, gui = pcall(mod.find, mod, "g9-gui")
+      local t = ok and gui and gui.exports and gui.exports.translation
+      if type(t) == "table" and type(t.line) == "function" then
+        translateLayer = t
+      end
+    end
+    if not translateLayer then return text end
+    local ok, v = pcall(translateLayer.line, text)
+    if ok and type(v) == "string" and v ~= "" then return v end
+    return text
+  end
+
+  local StyleCache
+  local function styleModule()
+    if StyleCache ~= nil then return StyleCache or nil end
+    local Style = loadSibling("ui/style.lua")
+    if type(Style) == "function" then
+      local okS, built = pcall(Style, mod)
+      Style = okS and built or nil
+    end
+    if type(Style) == "table" and type(Style.setLocalizer) == "function" then
+      pcall(Style.setLocalizer, g9Localize)
+    end
+    StyleCache = (type(Style) == "table") and Style or false
+    return StyleCache or nil
+  end
+
+  -- ------------------------------------------------------------------ trade
+  -- The TRADE screen lives on the whose-PC menu (the row ui/pc_rows.lua splices
+  -- in), and its two options are the two trade flows.  Everything the screen
+  -- needs is loaded here and handed over as ONE context, so ui/trade.lua owns
+  -- the page and nothing else:
+  --   * ui/mon_art.lua       the sprite reader -- g9-battle-sprites first, the
+  --                          engine's own art as the floor (never blank)
+  --   * ui/trade_anim.lua    the MODERN / NATIVE cinematic
+  --   * trades/wonder.lua    the one-way wonder trade, with the pity clock
+  --   * trades/evo.lua       the out-and-back trade that fires a REAL trade
+  --                          evolution (the engine evolves what the local game
+  --                          receives -- see trades/evo.lua's own note)
+  --   * data/pity.lua        the rarity brackets + the IV factor
+  --   * data/wonder_pool.lua the registry-wide pool and the alternate-form rule
+  --   * data/form_items.lua  the Mega Stone / Z-Crystal tables
+  --   * data/legendary.lua   the 5-star roster the pool reads
+  local TradeMod, openTrade
+  if on("trade") then
+    local Pity = loadSibling("data/pity.lua")
+    local Legendary = loadSibling("data/legendary.lua")
+    local FormItems = loadSibling("data/form_items.lua")
+    local WonderPool = loadSibling("data/wonder_pool.lua")
+    local MonArt = loadSibling("ui/mon_art.lua")
+    local TradeAnimFactory = loadSibling("ui/trade_anim.lua")
+    local TradeFactory = loadSibling("ui/trade.lua")
+    local Wonder = loadSibling("trades/wonder.lua")
+    local Evo = loadSibling("trades/evo.lua")
+    local Style = styleModule()
+    local missing = {}
+    local function need(label, value, kind)
+      if type(value) ~= kind then missing[#missing + 1] = label end
+    end
+    need("data/pity.lua", Pity, "table")
+    need("data/legendary.lua", Legendary, "table")
+    need("data/form_items.lua", FormItems, "table")
+    need("data/wonder_pool.lua", WonderPool, "table")
+    need("ui/mon_art.lua", MonArt, "table")
+    need("trades/wonder.lua", Wonder, "table")
+    need("trades/evo.lua", Evo, "table")
+    if type(Style) ~= "table" then missing[#missing + 1] = "ui/style.lua" end
+    if type(TradeAnimFactory) ~= "function" then
+      missing[#missing + 1] = "ui/trade_anim.lua"
+    end
+    if type(TradeFactory) ~= "function" then
+      missing[#missing + 1] = "ui/trade.lua"
+    end
+    if #missing > 0 then
+      warn("g9-evolutions: TRADE is on but these did not load -- the screen "
+        .. "is off: " .. table.concat(missing, ", "))
+    else
+      local tradeCtx = {
+        gen = gen,
+        opt = opt,
+        Style = Style,
+        monArt = MonArt,
+        wonder = Wonder,
+        evo = Evo,
+        pity = Pity,
+        legendary = Legendary,
+        formItems = FormItems,
+        wonderPool = WonderPool,
+        blacklist = Blacklist,
+        exports = exports,
+        -- A wonder-traded Gigantamax form is delivered as its base species
+        -- with its Factor switched on (data/wonder_pool.lua's rule).  The
+        -- write goes through data/gigantamax_factor.lua, whose isEligible
+        -- gate asks the engine's own roster first, so a G-max form of a
+        -- species the engine will not let Gigantamax (Eternatus) is handed
+        -- over as its plain base form and the roll records no Factor.
+        setGmaxFactor = function(mon, species)
+          if type(GFactor) ~= "table" then return false end
+          if type(GFactor.isEligible) == "function"
+              and not GFactor.isEligible(mod, species) then
+            return false
+          end
+          if type(GFactor.setFactor) ~= "function" then return false end
+          return GFactor.setFactor(mod, mon) == true
+        end,
+      }
+      local anim = TradeAnimFactory(mod, tradeCtx)
+      tradeCtx.tradeAnim = anim
+      local screen = TradeFactory(mod, tradeCtx)
+      if attempt("ui/trade_anim.lua", anim.install)
+          and attempt("ui/trade.lua", screen.install) then
+        TradeMod = screen
+        openTrade = function(game) return screen.open(game) end
+      end
+    end
+  else
+    info("g9-evolutions: TRADE is OFF -- the whose-PC menu gains no TRADE row "
+      .. "and the trade screen is not installed")
+  end
+
+  -- -------------------------------------------------------------- BLACKLIST
+  -- The wonder trade honours the suite's BLACKLIST, and when g9-battle-sample
+  -- is not the one showing the button this mod offers the same OPTIONS row and
+  -- the same (native / g9-gui-skinnable) window -- see ui/blacklist.lua.  The
+  -- row is registered here but only ADDS itself at menu-build time, where it
+  -- can see whether the sample loaded: a sample that loads after this mod still
+  -- wins its registration, and this mod merely reads that list for its filter.
+  if on("trade") and type(Blacklist) == "table" then
+    local factory = loadSibling("ui/blacklist.lua")
+    if type(factory) == "function" then
+      local okB, BlacklistUI = attempt("ui/blacklist.lua", factory, mod, {
+        gen = gen, opt = opt, blacklist = Blacklist,
+      })
+      if okB and type(BlacklistUI) == "table"
+          and type(BlacklistUI.install) == "function" then
+        attempt("blacklist install", BlacklistUI.install)
       end
     else
-      info("g9-evolutions: MAX PC is OFF -- the PC's MAX-FACTOR row (and its "
-        .. "10-candy conversion) is not installed")
+      warn("g9-evolutions: ui/blacklist.lua did not load -- the wonder trade "
+        .. "still honours an existing blacklist, but no BLACKLIST button is "
+        .. "offered when g9-battle-sample is absent")
     end
+  end
+
+  -- ------------------------------------------------------------ whose-PC rows
+  -- MAX-FACTOR and TRADE both live on the "Access whose PC?" screen now (see
+  -- ui/pc_rows.lua): Gen 1's openPC list, or Gold's CenterPcMenu, spliced in
+  -- just above the exit row.  One install serves both, and either option can
+  -- be off while the other stays on.
+  if on("max_pc") or on("trade") then
+    local PcRows = loadSibling("ui/pc_rows.lua")
+    if type(PcRows) == "table" and type(PcRows.install) == "function" then
+      attempt("ui/pc_rows.lua", PcRows.install, mod, ctx, {
+        GF = GFactor,
+        maxFactor = on("max_pc"),
+        trade = on("trade"),
+        openTrade = openTrade,
+      })
+    else
+      warn("g9-evolutions: ui/pc_rows.lua did not return an installer")
+    end
+  else
+    info("g9-evolutions: MAX PC and TRADE are both OFF -- the whose-PC menu is "
+      .. "left exactly as the engine drew it")
   end
 
   -- ------------------------------------------- Gimmighoul charge bookkeeping
@@ -474,7 +676,9 @@ return function(mod)
   -- the screen rather than the model).
   local coinId = itemIdFor(RowBuilder.GIMMIGHOUL_COIN)
   local dropPercent = numberOpt("gimmighoul_drop", 0)
-  if coinId and dropPercent > 0 then
+  -- The coin is registered by the rebuild wing, and a wild Gimmighoul is a
+  -- national_dex species, so both the item and the drop belong to the rebuild.
+  if dexAvailable and coinId and dropPercent > 0 then
     local wildSpecies = setmetatable({}, { __mode = "k" })
     mod.events:on("battle.started", function(ev)
       if type(ev) ~= "table" or ev.kind ~= "wild" then return end
@@ -521,11 +725,7 @@ return function(mod)
   -- the evolution rebuild above.
   local inspectorInstalled = false
   if on("happiness_inspector") or on("gimmighoul_inspector") then
-    local Style = loadSibling("ui/style.lua")
-    if type(Style) == "function" then
-      local okS, built = pcall(Style, mod)
-      Style = okS and built or nil
-    end
+    local Style = styleModule()
     if type(Style) ~= "table" then
       warn("g9-evolutions: ui/style.lua did not load -- no inspectors")
     else
@@ -572,18 +772,24 @@ return function(mod)
   end
 
   -- ------------------------------------------------------------- exports
-  mod.exports.evolutionsVersion = "0.8.0"
+  mod.exports.evolutionsVersion = "1.6.0"
   mod.exports.regionItems = HeldItem.REGION_ITEMS
   mod.exports.isRegionItem = HeldItem.isRegionItem
   mod.exports.regionOfItem = HeldItem.regionOfItem
   mod.exports.heldItemOf = function(mon) return HeldItem.of(mon, gen) end
 
-  info(string.format("g9-evolutions: rebuilt evolution for %d species "
-    .. "(%d rows, %d regional, %d known-move converted, %d unmatched targets "
-    .. "skipped) across %d method units; %d item unit(s) installed on "
-    .. "generation %d",
-    patched, totalRows, regionCount, moveEvoCount, skippedTargets,
-    methodsRegistered, itemsRegistered, gen))
+  if dexAvailable then
+    info(string.format("g9-evolutions: rebuilt evolution for %d species "
+      .. "(%d rows, %d regional, %d known-move converted, %d unmatched targets "
+      .. "skipped) across %d method units; %d item unit(s) installed on "
+      .. "generation %d",
+      patched, totalRows, regionCount, moveEvoCount, skippedTargets,
+      methodsRegistered, itemsRegistered, gen))
+  else
+    info(string.format("g9-evolutions: national_dex absent -- the evolution "
+      .. "rebuild is off (0 species); the trade wing, inspectors and PC rows "
+      .. "are installed on generation %d", gen))
+  end
   if unknown > 0 then
     info(string.format("g9-evolutions: %d species with evolutions were not "
       .. "registered and were skipped", unknown))
@@ -595,5 +801,17 @@ return function(mod)
       tostring(opt("inspector_style") or "MODERN"),
       on("happiness_inspector") and "on" or "off",
       on("gimmighoul_inspector") and "on" or "off"))
+  end
+  if on("trade") then
+    info(string.format("g9-evolutions: TRADE %s (style %s)",
+      TradeMod and "on" or "FAILED",
+      tostring(opt("trade_style") or "MODERN")))
+  end
+  if on("trade") and type(Blacklist) == "table" then
+    -- Who OWNS the button is decided at menu-build time (the sample may load
+    -- after this mod), so the boot line states the rule, not a guess.
+    info("g9-evolutions: the wonder trade filters by the shared BLACKLIST; "
+      .. "the OPTIONS BLACKLIST row is offered only when g9-battle-sample is "
+      .. "absent")
   end
 end

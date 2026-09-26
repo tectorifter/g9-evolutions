@@ -560,6 +560,9 @@ return function(mod, ctx)
   -- whole window in :drawWidescreen (the documented Gen 2 surface contract --
   -- see g9-gui's ui/shell.lua and GEN2-PORT.md).
   local function installSurface(self)
+    -- COLOR PROTECTION (g9-gui): mark this page as a modern UI so g9-gui's
+    -- toggle keeps the native COLORS / COLOR display mode off it.
+    self.__g9modern = true
     function self:sgbPalettes() return {} end
     if gen == 1 then
       function self:uiSize() return MODERN_W, MODERN_H end

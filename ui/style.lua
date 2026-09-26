@@ -142,6 +142,30 @@ return function(mod)
     return (def and def.ttf and def.ttf.file) or nil
   end
 
+  -- The symbol supplement (assets/fonts/g9-symbols.ttf): U+2640 FEMALE SIGN,
+  -- U+2642 MALE SIGN and U+2605 BLACK STAR -- the glyphs a translated name can
+  -- carry that Saira does not (Nidoran FEMALE/MALE, an item's star; see g9-gui's
+  -- ui/translation.lua).  Attached to every Saira face as a LOVE 11.3
+  -- Font:setFallbacks fallback, so a translated Pokemon name in the trade /
+  -- inspector / evolution pages renders its symbol instead of a tofu box.
+  local FONT_SYMBOLS = "assets/fonts/g9-symbols.ttf"
+  local symbolFonts = {}
+  local function symbolAt(size)
+    local hit = symbolFonts[size]
+    if hit ~= nil then return hit or nil end
+    local f = fromMod(FONT_SYMBOLS, size)
+    symbolFonts[size] = f or false
+    return f
+  end
+  local function withSymbols(font, size)
+    if not (font and type(size) == "number" and font.setFallbacks) then
+      return font
+    end
+    local sym = symbolAt(size)
+    if sym then pcall(font.setFallbacks, font, sym) end
+    return font
+  end
+
   local fontCache = {}
   -- fonts(game, style) -> { title, body, small, bold }.  Cached per style once
   -- a game table is available (only the boot knows where the engine TTF is).
@@ -159,10 +183,11 @@ return function(mod)
       built = { title = tryFont(path, 13) or body, body = body,
         small = tryFont(path, 10) or body, bold = body }
     else
-      local body = fromMod(FONT_REGULAR, 16) or tryFont(engineFile(game), 16) or current
-      local small = fromMod(FONT_REGULAR, 11) or body
-      local bold = fromMod(FONT_BOLD, 16) or body
-      local title = fromMod(FONT_BOLD, 20) or bold
+      local body = withSymbols(fromMod(FONT_REGULAR, 16)
+        or tryFont(engineFile(game), 16) or current, 16)
+      local small = withSymbols(fromMod(FONT_REGULAR, 11) or body, 11)
+      local bold = withSymbols(fromMod(FONT_BOLD, 16) or body, 16)
+      local title = withSymbols(fromMod(FONT_BOLD, 20) or bold, 20)
       built = { title = title, body = body, small = small, bold = bold }
     end
     if game then fontCache[key] = built end
@@ -186,17 +211,38 @@ return function(mod)
     love.graphics.setColor(c[1], c[2], c[3], a or c[4] or 1)
   end
 
-  function Style.w(str, font)
+  -- The modern-content localizer (g9-gui's translation layer, when installed).
+  -- Set once from main.lua; a no-op without a translation mod.  Applied at every
+  -- text entry point -- the draw AND both measurers -- so a localized string is
+  -- measured exactly as it is drawn (a Japanese/Korean label is wider than its
+  -- English source, and fitting must see the translation).
+  local localizer = nil
+  function Style.setLocalizer(fn)
+    if type(fn) == "function" then localizer = fn end
+  end
+  local function localize(s)
+    if not localizer or type(s) ~= "string" or s == "" then return s end
+    local ok, v = pcall(localizer, s)
+    if ok and type(v) == "string" and v ~= "" then return v end
+    return s
+  end
+  Style.localize = localize
+
+  local function rawW(str, font)
     if not font then return 0 end
     local ok, w = pcall(font.getWidth, font, scrub(str))
     return ok and w or 0
   end
 
+  function Style.w(str, font)
+    return rawW(scrub(localize(tostring(str))), font)
+  end
+
   function Style.text(str, x, y, font, align, color)
-    str = scrub(tostring(str))
+    str = scrub(localize(tostring(str)))
     if color then Style.set(color) end
     if font then love.graphics.setFont(font) end
-    local w = font and Style.w(str, font) or 0
+    local w = rawW(str, font)
     local dx = x
     if align == "right" then dx = x - w
     elseif align == "center" then dx = x - w * 0.5 end
@@ -206,7 +252,7 @@ return function(mod)
 
   function Style.fit(str, font, maxPx)
     if str == nil then return str end
-    str = scrub(tostring(str))
+    str = scrub(localize(tostring(str)))
     if not font or maxPx <= 0 then return str end
     local ok, w = pcall(font.getWidth, font, str)
     if not ok or w <= maxPx then return str end

@@ -2,7 +2,7 @@
 -- Gigantamax-capable species as able to Gigantamax, and is CONSUMED doing so.
 --
 -- Its id, display name, price and the eligibility test all come from
--- data/gigantamax_factor.lua, shared with the PC row (ui/pc_maxfactor.lua) that
+-- data/gigantamax_factor.lua, shared with the PC row (ui/pc_rows.lua) that
 -- mints it -- so the item a player is handed is the item the PC describes.
 --
 -- Registration is `:patch` on both the item and its effect, never `:register`,

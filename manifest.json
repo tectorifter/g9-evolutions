@@ -1,7 +1,7 @@
 {
   "id": "g9-evolutions",
   "name": "g9-evolutions",
-  "version": "0.8.0",
+  "version": "1.6.3",
   "api": 2,
   "entry": "main.lua",
   "profile": "content",
@@ -15,14 +15,20 @@
   "permissions": [
     "engine_internals"
   ],
-  "dependencies": [
-    "national_dex"
-  ],
+  "dependencies": [],
   "optional_dependencies": [
-    "g9-battle-engine"
+    "national_dex",
+    "g9-battle-engine",
+    "g9-battle-sprites",
+    "g9-battle-sample",
+    "g9-gui"
   ],
-  "description": "Evolution on both generations, plus happiness and Gimmighoul inspectors.",
+  "dependency_sources": {
+    "national_dex": "https://github.com/sanjinpepic/gen1recomp-national-dex"
+  },
+  "description": "Evolution, inspectors, PC trade (wonder/trade evo) and MAX-FACTOR.",
   "options_schema": "options.lua",
+  "github": "https://github.com/tectorifter/g9-evolutions",
   "experimental": false,
   "conflicts": [],
   "incompatible": []

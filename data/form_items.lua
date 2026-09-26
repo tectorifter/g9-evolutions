@@ -1,0 +1,175 @@
+-- The item that enables an ALTERNATE FORM, in two tables.
+--
+-- The wonder trade gives a player the non-alternate form of a Pokemon plus the
+-- item that turns it into the alternate one. This is where that item id comes
+-- from. Both halves are VENDORED rather than read at runtime on purpose:
+--
+--   * the Mega-Stone pairing is a fact play.pokemonshowdown.com's own items data
+--     carries (`megaStone = { Charizard = "Charizard-Mega-X" }`) and
+--     national_dex republishes through itemFlags(), but itemFlags arrived at
+--     apiVersion 9 and this mod supports a dex from apiVersion 5 up -- so the
+--     dex's own answer is used when it is there (main.lua hands the resolved
+--     table in), and this table is the floor. It is generated from
+--     national_dex 0.35.7's data/items/generated/flags.lua cross-checked against
+--     its own species roster, so every key here is a form that dex registers.
+--
+--   * the Z-Crystal pairing belongs to the battle_forms mod, which registers the
+--     crystals and decides what holds them; nothing national_dex publishes names
+--     it. The species half is battle_forms' data/speciesz.lua (the fourteen
+--     signature crystals) and the type half its data/zmoves.lua (the eighteen
+--     type crystals), so a totem of a species without a signature crystal still
+--     gets the crystal matching its own type.
+--
+-- An id here that the running game has no item for (battle_forms not installed,
+-- say) simply cannot be handed over -- the caller checks the item exists before
+-- adding it and logs the miss, rather than putting an unknown id in a bag.
+return {
+  -- Mega form id -> the stone that enables it (national_dex form ids).
+  MEGA_STONES = {
+  ["ABOMASNOW_MEGA"] = "ABOMASITE",
+  ["ABSOL_MEGA"] = "ABSOLITE",
+  ["ABSOL_MEGA_Z"] = "ABSOLITEZ",
+  ["AERODACTYL_MEGA"] = "AERODACTYLITE",
+  ["AGGRON_MEGA"] = "AGGRONITE",
+  ["ALAKAZAM_MEGA"] = "ALAKAZITE",
+  ["ALTARIA_MEGA"] = "ALTARIANITE",
+  ["AMPHAROS_MEGA"] = "AMPHAROSITE",
+  ["AUDINO_MEGA"] = "AUDINITE",
+  ["BANETTE_MEGA"] = "BANETTITE",
+  ["BARBARACLE_MEGA"] = "BARBARACITE",
+  ["BAXCALIBUR_MEGA"] = "BAXCALIBRITE",
+  ["BEEDRILL_MEGA"] = "BEEDRILLITE",
+  ["BLASTOISE_MEGA"] = "BLASTOISINITE",
+  ["BLAZIKEN_MEGA"] = "BLAZIKENITE",
+  ["CAMERUPT_MEGA"] = "CAMERUPTITE",
+  ["CHANDELURE_MEGA"] = "CHANDELURITE",
+  ["CHARIZARD_MEGA_X"] = "CHARIZARDITEX",
+  ["CHARIZARD_MEGA_Y"] = "CHARIZARDITEY",
+  ["CHESNAUGHT_MEGA"] = "CHESNAUGHTITE",
+  ["CHIMECHO_MEGA"] = "CHIMECHITE",
+  ["CLEFABLE_MEGA"] = "CLEFABLITE",
+  ["CRABOMINABLE_MEGA"] = "CRABOMINITE",
+  ["DARKRAI_MEGA"] = "DARKRANITE",
+  ["DELPHOX_MEGA"] = "DELPHOXITE",
+  ["DIANCIE_MEGA"] = "DIANCITE",
+  ["DRAGALGE_MEGA"] = "DRAGALGITE",
+  ["DRAGONITE_MEGA"] = "DRAGONINITE",
+  ["DRAMPA_MEGA"] = "DRAMPANITE",
+  ["EELEKTROSS_MEGA"] = "EELEKTROSSITE",
+  ["EMBOAR_MEGA"] = "EMBOARITE",
+  ["EXCADRILL_MEGA"] = "EXCADRITE",
+  ["FALINKS_MEGA"] = "FALINKSITE",
+  ["FERALIGATR_MEGA"] = "FERALIGITE",
+  ["FLOETTE_MEGA"] = "FLOETTITE",
+  ["FROSLASS_MEGA"] = "FROSLASSITE",
+  ["GALLADE_MEGA"] = "GALLADITE",
+  ["GARCHOMP_MEGA"] = "GARCHOMPITE",
+  ["GARCHOMP_MEGA_Z"] = "GARCHOMPITEZ",
+  ["GARDEVOIR_MEGA"] = "GARDEVOIRITE",
+  ["GENGAR_MEGA"] = "GENGARITE",
+  ["GLALIE_MEGA"] = "GLALITITE",
+  ["GLIMMORA_MEGA"] = "GLIMMORANITE",
+  ["GOLISOPOD_MEGA"] = "GOLISOPITE",
+  ["GOLURK_MEGA"] = "GOLURKITE",
+  ["GRENINJA_MEGA"] = "GRENINJITE",
+  ["GYARADOS_MEGA"] = "GYARADOSITE",
+  ["HAWLUCHA_MEGA"] = "HAWLUCHANITE",
+  ["HEATRAN_MEGA"] = "HEATRANITE",
+  ["HERACROSS_MEGA"] = "HERACRONITE",
+  ["HOUNDOOM_MEGA"] = "HOUNDOOMINITE",
+  ["KANGASKHAN_MEGA"] = "KANGASKHANITE",
+  ["LATIAS_MEGA"] = "LATIASITE",
+  ["LATIOS_MEGA"] = "LATIOSITE",
+  ["LOPUNNY_MEGA"] = "LOPUNNITE",
+  ["LUCARIO_MEGA"] = "LUCARIONITE",
+  ["LUCARIO_MEGA_Z"] = "LUCARIONITEZ",
+  ["MAGEARNA_MEGA"] = "MAGEARNITE",
+  ["MAGEARNA_ORIGINAL_MEGA"] = "MAGEARNITE",
+  ["MALAMAR_MEGA"] = "MALAMARITE",
+  ["MANECTRIC_MEGA"] = "MANECTITE",
+  ["MAWILE_MEGA"] = "MAWILITE",
+  ["MEDICHAM_MEGA"] = "MEDICHAMITE",
+  ["MEGANIUM_MEGA"] = "MEGANIUMITE",
+  ["MEOWSTIC_FEMALE_MEGA"] = "MEOWSTICITE",
+  ["MEOWSTIC_MALE_MEGA"] = "MEOWSTICITE",
+  ["METAGROSS_MEGA"] = "METAGROSSITE",
+  ["MEWTWO_MEGA_X"] = "MEWTWONITEX",
+  ["MEWTWO_MEGA_Y"] = "MEWTWONITEY",
+  ["PIDGEOT_MEGA"] = "PIDGEOTITE",
+  ["PINSIR_MEGA"] = "PINSIRITE",
+  ["PYROAR_MEGA"] = "PYROARITE",
+  ["RAICHU_MEGA_X"] = "RAICHUNITEX",
+  ["RAICHU_MEGA_Y"] = "RAICHUNITEY",
+  ["SABLEYE_MEGA"] = "SABLENITE",
+  ["SALAMENCE_MEGA"] = "SALAMENCITE",
+  ["SCEPTILE_MEGA"] = "SCEPTILITE",
+  ["SCIZOR_MEGA"] = "SCIZORITE",
+  ["SCOLIPEDE_MEGA"] = "SCOLIPITE",
+  ["SCOVILLAIN_MEGA"] = "SCOVILLAINITE",
+  ["SCRAFTY_MEGA"] = "SCRAFTINITE",
+  ["SHARPEDO_MEGA"] = "SHARPEDONITE",
+  ["SKARMORY_MEGA"] = "SKARMORITE",
+  ["SLOWBRO_MEGA"] = "SLOWBRONITE",
+  ["STARAPTOR_MEGA"] = "STARAPTITE",
+  ["STARMIE_MEGA"] = "STARMINITE",
+  ["STEELIX_MEGA"] = "STEELIXITE",
+  ["SWAMPERT_MEGA"] = "SWAMPERTITE",
+  ["TATSUGIRI_CURLY_MEGA"] = "TATSUGIRINITE",
+  ["TATSUGIRI_DROOPY_MEGA"] = "TATSUGIRINITE",
+  ["TATSUGIRI_STRETCHY_MEGA"] = "TATSUGIRINITE",
+  ["TYRANITAR_MEGA"] = "TYRANITARITE",
+  ["VENUSAUR_MEGA"] = "VENUSAURITE",
+  ["VICTREEBEL_MEGA"] = "VICTREEBELITE",
+  ["ZERAORA_MEGA"] = "ZERAORITE",
+  ["ZYGARDE_MEGA"] = "ZYGARDITE",
+  },
+
+  -- Pokemon type -> the Z-Crystal that unlocks that type's Z-Move.
+  TYPE_CRYSTALS = {
+    BUG = "BUGINIUM_Z",
+    DARK = "DARKINIUM_Z",
+    DRAGON = "DRAGONIUM_Z",
+    ELECTRIC = "ELECTRIUM_Z",
+    FAIRY = "FAIRIUM_Z",
+    FIGHTING = "FIGHTINIUM_Z",
+    FIRE = "FIRIUM_Z",
+    FLYING = "FLYINIUM_Z",
+    GHOST = "GHOSTIUM_Z",
+    GRASS = "GRASSIUM_Z",
+    GROUND = "GROUNDIUM_Z",
+    ICE = "ICIUM_Z",
+    NORMAL = "NORMALIUM_Z",
+    POISON = "POISONIUM_Z",
+    PSYCHIC_TYPE = "PSYCHIUM_Z",
+    ROCK = "ROCKIUM_Z",
+    STEEL = "STEELIUM_Z",
+    WATER = "WATERIUM_Z",
+  },
+
+  -- Species id -> its signature Z-Crystal (battle_forms data/speciesz.lua).
+  SPECIES_CRYSTALS = {
+    ["DECIDUEYE"] = "DECIDIUM_Z",
+    ["INCINEROAR"] = "INCINIUM_Z",
+    ["KOMMO_O"] = "KOMMONIUM_Z",
+    ["LUNALA"] = "LUNALIUM_Z",
+    ["LYCANROC"] = "LYCANIUM_Z",
+    ["LYCANROC_DUSK"] = "LYCANIUM_Z",
+    ["LYCANROC_MIDNIGHT"] = "LYCANIUM_Z",
+    ["MARSHADOW"] = "MARSHADIUM_Z",
+    ["MEW"] = "MEWNIUM_Z",
+    ["MIMIKYU"] = "MIMIKIUM_Z",
+    ["PIKACHU"] = "PIKASHUNIUM_Z",
+    ["PIKACHU_ALOLA_CAP"] = "PIKANIUM_Z",
+    ["PIKACHU_HOENN_CAP"] = "PIKANIUM_Z",
+    ["PIKACHU_KALOS_CAP"] = "PIKANIUM_Z",
+    ["PIKACHU_ORIGINAL_CAP"] = "PIKANIUM_Z",
+    ["PIKACHU_PARTNER_CAP"] = "PIKANIUM_Z",
+    ["PIKACHU_SINNOH_CAP"] = "PIKANIUM_Z",
+    ["PIKACHU_UNOVA_CAP"] = "PIKANIUM_Z",
+    ["PIKACHU_WORLD_CAP"] = "PIKANIUM_Z",
+    ["PRIMARINA"] = "PRIMARIUM_Z",
+    ["RAICHU_ALOLA"] = "ALORAICHIUM_Z",
+    ["SNORLAX"] = "SNORLIUM_Z",
+    ["SOLGALEO"] = "SOLGANIUM_Z",
+  },
+}

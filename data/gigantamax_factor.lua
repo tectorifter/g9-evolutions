@@ -7,7 +7,7 @@
 -- a vocabulary of its own: the engine id it registers under, its display name,
 -- the Dynamax Candy it is minted from, the exchange rate and the PC row's own
 -- wording.  TWO installers read that vocabulary -- items/gigantamax_factor.lua
--- (the item) and ui/pc_maxfactor.lua (the row) -- so it lives in one copy here
+-- (the item) and ui/pc_rows.lua (the row) -- so it lives in one copy here
 -- where the two cannot drift into printing one number while spending another.
 --
 -- The item's display name is the one asked for, "G-FACTOR".  The PC row and
